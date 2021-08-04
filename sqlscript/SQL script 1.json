@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 1",
+	"properties": {
+		"content": {
+			"query": "CREATE SCHEMA ext\nGO\n\nDROP SCHEMA ext\nGO\n\nCREATE SCHEMA prod\nGO\n\n-- Create external table for Taxi Zones\nCREATE EXTERNAL TABLE ext.TaxiZones\n(\n\tLocationId INT,\n\tBorough NVARCHAR(100),\n\tZone NVARCHAR(100),\n    ServiceZone NVARCHAR(100)\n)\nWITH\n(\n    DATA_SOURCE = DataLakeSrc\n  , FILE_FORMAT = CSVFileFormat  \n  , LOCATION='/raw/taxidata/TaxiZones1.csv'  \n)\nGO\n\nSELECT * FROM ext.TaxiZones\nGO\n\n-- Drop external table\nDROP EXTERNAL TABLE ext.TaxiZones\n\n-- Recreate external table\nCREATE EXTERNAL TABLE ext.TaxiZones\n(\n\tLocationId INT,\n\tBorough NVARCHAR(100),\n\tZone NVARCHAR(100),\n    ServiceZone NVARCHAR(100)\n)\nWITH\n(\n    DATA_SOURCE = DataLakeSrc\n  , FILE_FORMAT = CSVFileFormat  \n  , LOCATION='/raw/taxidata/'    \n  , REJECT_TYPE = VALUE\n  , REJECT_VALUE = 1\n  , REJECTED_ROW_LOCATION='/raw/errors/TaxiZones'\n)\nGO\n\nSELECT * FROM ext.TaxiZones\n\n\nSELECT * FROM prod.TaxiZones\n\n-- Create a local table by reading from external table\nCREATE TABLE prod.TaxiZones\nWITH \n(\n\tDISTRIBUTION = ROUND_ROBIN,\n\tCLUSTERED COLUMNSTORE INDEX\n) \nAS \nSELECT * \nFROM ext.TaxiZones\nOPTION (LABEL = 'Load prod.TaxiZones');\n\n\n-- Check the load status\n\n-- Check the table\nSELECT * FROM prod.TaxiZones",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"poolName": "jenilsqldw",
+				"databaseName": "jenilsqldw"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}
