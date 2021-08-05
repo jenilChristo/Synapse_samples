@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 2",
+	"properties": {
+		"content": {
+			"query": "CREATE DATABASE ServerlessSQLDB;\nGO\n\nUSE ServerlessSQLDB;\nGO\n\n-- Run in ServerlessSQLDB\n\nCREATE EXTERNAL FILE FORMAT CSVFormat \nWITH \n(   FORMAT_TYPE = DELIMITEDTEXT\n,   FORMAT_OPTIONS  \n\t(   \n\t\tFIELD_TERMINATOR   = ','\n\t\t, STRING_DELIMITER = '\"'        \n        , USE_TYPE_DEFAULT = FALSE\n        , FIRST_ROW  = 2\n    )\n);\nGO\n\nCREATE EXTERNAL FILE FORMAT [ParquetFormat] \nWITH ( FORMAT_TYPE = PARQUET, DATA_COMPRESSION = 'org.apache.hadoop.io.compress.SnappyCodec')\nGO\n\n\nCREATE EXTERNAL DATA SOURCE MyDataLake_jenil\nwith (\n      LOCATION ='https://jelazaradlsgen2.dfs.core.windows.net/synapseadls'\n);  \nGO\n\n\nCREATE EXTERNAL TABLE dbo.ExtractYellowTaxiData\nWITH \n(  \n    DATA_SOURCE = MyDataLake_jenil,\n    FILE_FORMAT = ParquetFormat,\n    LOCATION='raw/bigdata/YellowTaxis.parquet'    \n) \nAS\nSELECT \n    [vendorID],\n\tCAST ([tpepPickupDateTime] AS DATE) AS tpepPickupDate,\n\tCAST([tpepDropoffDateTime] AS DATE) AS tpepDropoffDate,\n\t[passengerCount],\n\t[tripDistance],\n\t[puLocationId],\n\t[doLocationId],\n\t[rateCodeId],\n\t[storeAndFwdFlag],\n\t[paymentType],\n\t[fareAmount],\n\t[extra],\n\t[mtaTax],\n\t[improvementSurcharge],\n\t[tipAmount],\n\t[tollsAmount],\n\t[totalAmount]\nFROM\n    OPENROWSET(\n        BULK    'https://azureopendatastorage.blob.core.windows.net/nyctlc/yellow/puYear=2019/puMonth=*/*.parquet',\n        FORMAT = 'parquet'\n    ) AS [result];\nGO\n\n\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"poolName": "Built-in",
+				"databaseName": "ServerlessSQLDB"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}
