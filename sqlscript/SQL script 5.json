@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 5",
+	"properties": {
+		"content": {
+			"query": "-- Run query on Round Robin distributed table\nSELECT [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\n\t, AVG(\n\t\t\tDATEDIFF(SECOND, tpepPickupDate, tpepDropOffDate)\n\t\t )\nFROM prod.YellowTaxis_RoundRobin\nGROUP BY [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\nGO\n\n-- Run query on Hash distributed table\nSELECT [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\n\t, AVG(\n\t\t\tDATEDIFF(SECOND, tpepPickupDate, tpepDropOffDate)\n\t\t )\nFROM prod.YellowTaxis_Hash\nGROUP BY [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\nGO",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"poolName": "jenilsqldw",
+				"databaseName": "jenilsqldw"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 4",
+	"properties": {
+		"content": {
+			"query": "-- Dedicated pool\nCREATE TABLE prod.YellowTaxis_RoundRobin\nWITH\n(\n    DISTRIBUTION = ROUND_ROBIN\n)\nAS\nSELECT * \nFROM ext.YellowTaxis;\n\n-- Check distribution of data\nDBCC PDW_SHOWSPACEUSED('prod.YellowTaxis_RoundRobin')\n\n-- Create Hash table for Yellow Taxis, based on PULocationID\nCREATE TABLE prod.YellowTaxis_Hash\nWITH\n(\n    DISTRIBUTION = HASH(PULocationID)\n)\nAS\nSELECT  *\nFROM prod.YellowTaxis_RoundRobin\n\nSELECT * FROM prod.YellowTaxis_Hash\n\n-- Check distribution of data\nDBCC PDW_SHOWSPACEUSED('prod.YellowTaxis_Hash')",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"poolName": "jenilsqldw",
+				"databaseName": "jenilsqldw"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

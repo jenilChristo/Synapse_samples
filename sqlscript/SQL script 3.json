@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 3",
+	"properties": {
+		"content": {
+			"query": "IF NOT EXISTS (SELECT * FROM sys.external_file_formats WHERE name = 'SynapseParquetFormat') \n\tCREATE EXTERNAL FILE FORMAT [SynapseParquetFormat] \n\tWITH ( FORMAT_TYPE = PARQUET)\nGO\n\nCREATE EXTERNAL TABLE ext.YellowTaxis (\n\t[vendorID] varchar(8000),\n\t[tpepPickupDate] date,\n\t[tpepDropoffDate] date,\n\t[passengerCount] int,\n\t[tripDistance] float,\n\t[puLocationId] varchar(8000),\n\t[doLocationId] varchar(8000),\n\t[rateCodeId] int,\n\t[storeAndFwdFlag] varchar(8000),\n\t[paymentType] varchar(8000),\n\t[fareAmount] float,\n\t[extra] float,\n\t[mtaTax] float,\n\t[improvementSurcharge] varchar(8000),\n\t[tipAmount] float,\n\t[tollsAmount] float,\n\t[totalAmount] float\n\t)\n\tWITH (\n\tLOCATION = 'raw/bigdata/YellowTaxis.parquet/',\n\tDATA_SOURCE = DataLakeSrc,\n\tFILE_FORMAT = [SynapseParquetFormat],\n\tREJECT_TYPE = VALUE,\n\tREJECT_VALUE = 0\n\t)\nGO\n\nSELECT TOP 100 * FROM ext.YellowTaxis\nGO\n\nCREATE EXTERNAL TABLE ext.ProcessedYellowTaxis\nWITH \n(  \n    DATA_SOURCE = DataLakeSrc,\n    FILE_FORMAT = SynapseParquetFormat,\n    LOCATION='/Facts/YellowTaxis.parquet'    \n) \nAS\nSELECT top 100\n      PickupDate        = tpepPickupDate\n    , DropDate          = tpepDropoffDate\n    , Passengers        = passengerCount\n    , TripDistance      = tripDistance\n    , RateCodeId        = RatecodeID\n    , PickupLocationId  = PULocationID\n    , DropLocationId    = DOLocationID\n    , PaymentTypeId     = paymentType\n    , TotalAmount       = totalAmount    \nFROM ext.YellowTaxis y\n    INNER JOIN ext.TaxiZones z ON y.PULocationID = z.LocationID\nWHERE tpepPickupDate >= '2019-06-01' \n    AND tpepPickupDate < '2019-07-01'\n    AND passengerCount > 0\n\tAND z.ServiceZone = 'Yellow Zone';\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"poolName": "jenilsqldw",
+				"databaseName": "jenilsqldw"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}
