@@ -1,0 +1,232 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"workspaceName": {
+			"type": "string",
+			"metadata": "Workspace name",
+			"defaultValue": "jenilpocworkspace"
+		},
+		"jenilpocworkspace-WorkspaceDefaultSqlServer_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'jenilpocworkspace-WorkspaceDefaultSqlServer'"
+		},
+		"jelazardatalakegen2Linked_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://jelazaradlsgen2.dfs.core.windows.net"
+		},
+		"jenilpocworkspace-WorkspaceDefaultStorage_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://jelazaradlsgen2.dfs.core.windows.net"
+		}
+	},
+	"variables": {
+		"workspaceId": "[concat('Microsoft.Synapse/workspaces/', parameters('workspaceName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('workspaceName'), '/jelazardatalakegen2Linked')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('jelazardatalakegen2Linked_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/jenilpocworkspace-WorkspaceDefaultSqlServer')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"parameters": {
+					"DBName": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlDW",
+				"typeProperties": {
+					"connectionString": "[parameters('jenilpocworkspace-WorkspaceDefaultSqlServer_connectionString')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/jenilpocworkspace-WorkspaceDefaultStorage')]",
+			"type": "Microsoft.Synapse/workspaces/linkedServices",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('jenilpocworkspace-WorkspaceDefaultStorage_properties_typeProperties_url')]"
+				},
+				"connectVia": {
+					"referenceName": "AutoResolveIntegrationRuntime",
+					"type": "IntegrationRuntimeReference"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('workspaceId'), '/integrationRuntimes/AutoResolveIntegrationRuntime')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/AutoResolveIntegrationRuntime')]",
+			"type": "Microsoft.Synapse/workspaces/integrationRuntimes",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "AutoResolve",
+						"dataFlowProperties": {
+							"computeType": "General",
+							"coreCount": 8,
+							"timeToLive": 0
+						}
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/WorkspaceSystemIdentity')]",
+			"type": "Microsoft.Synapse/workspaces/credentials",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"type": "ManagedIdentity",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 1')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "CREATE SCHEMA ext\nGO\n\nDROP SCHEMA ext\nGO\n\nCREATE SCHEMA prod\nGO\n\n-- Create external table for Taxi Zones\nCREATE EXTERNAL TABLE ext.TaxiZones\n(\n\tLocationId INT,\n\tBorough NVARCHAR(100),\n\tZone NVARCHAR(100),\n    ServiceZone NVARCHAR(100)\n)\nWITH\n(\n    DATA_SOURCE = DataLakeSrc\n  , FILE_FORMAT = CSVFileFormat  \n  , LOCATION='/raw/taxidata/TaxiZones1.csv'  \n)\nGO\n\nSELECT * FROM ext.TaxiZones\nGO\n\n-- Drop external table\nDROP EXTERNAL TABLE ext.TaxiZones\n\n-- Recreate external table\nCREATE EXTERNAL TABLE ext.TaxiZones\n(\n\tLocationId INT,\n\tBorough NVARCHAR(100),\n\tZone NVARCHAR(100),\n    ServiceZone NVARCHAR(100)\n)\nWITH\n(\n    DATA_SOURCE = DataLakeSrc\n  , FILE_FORMAT = CSVFileFormat  \n  , LOCATION='/raw/taxidata/'    \n  , REJECT_TYPE = VALUE\n  , REJECT_VALUE = 1\n  , REJECTED_ROW_LOCATION='/raw/errors/TaxiZones'\n)\nGO\n\nSELECT * FROM ext.TaxiZones\n\n\nSELECT * FROM prod.TaxiZones\n\n-- Create a local table by reading from external table\nCREATE TABLE prod.TaxiZones\nWITH \n(\n\tDISTRIBUTION = ROUND_ROBIN,\n\tCLUSTERED COLUMNSTORE INDEX\n) \nAS \nSELECT * \nFROM ext.TaxiZones\nOPTION (LABEL = 'Load prod.TaxiZones');\n\n\n-- Check the load status\n\n-- Check the table\nSELECT * FROM prod.TaxiZones",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"poolName": "jenilsqldw",
+						"databaseName": "jenilsqldw"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 2')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "CREATE DATABASE ServerlessSQLDB;\nGO\n\nUSE ServerlessSQLDB;\nGO\n\n-- Run in ServerlessSQLDB\n\nCREATE EXTERNAL FILE FORMAT CSVFormat \nWITH \n(   FORMAT_TYPE = DELIMITEDTEXT\n,   FORMAT_OPTIONS  \n\t(   \n\t\tFIELD_TERMINATOR   = ','\n\t\t, STRING_DELIMITER = '\"'        \n        , USE_TYPE_DEFAULT = FALSE\n        , FIRST_ROW  = 2\n    )\n);\nGO\n\nCREATE EXTERNAL FILE FORMAT [ParquetFormat] \nWITH ( FORMAT_TYPE = PARQUET, DATA_COMPRESSION = 'org.apache.hadoop.io.compress.SnappyCodec')\nGO\n\n\nCREATE EXTERNAL DATA SOURCE MyDataLake_jenil\nwith (\n      LOCATION ='https://jelazaradlsgen2.dfs.core.windows.net/synapseadls'\n);  \nGO\n\n\nCREATE EXTERNAL TABLE dbo.ExtractYellowTaxiData\nWITH \n(  \n    DATA_SOURCE = MyDataLake_jenil,\n    FILE_FORMAT = ParquetFormat,\n    LOCATION='raw/bigdata/YellowTaxis.parquet'    \n) \nAS\nSELECT \n    [vendorID],\n\tCAST ([tpepPickupDateTime] AS DATE) AS tpepPickupDate,\n\tCAST([tpepDropoffDateTime] AS DATE) AS tpepDropoffDate,\n\t[passengerCount],\n\t[tripDistance],\n\t[puLocationId],\n\t[doLocationId],\n\t[rateCodeId],\n\t[storeAndFwdFlag],\n\t[paymentType],\n\t[fareAmount],\n\t[extra],\n\t[mtaTax],\n\t[improvementSurcharge],\n\t[tipAmount],\n\t[tollsAmount],\n\t[totalAmount]\nFROM\n    OPENROWSET(\n        BULK    'https://azureopendatastorage.blob.core.windows.net/nyctlc/yellow/puYear=2019/puMonth=*/*.parquet',\n        FORMAT = 'parquet'\n    ) AS [result];\nGO\n\n\n\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"poolName": "Built-in",
+						"databaseName": "ServerlessSQLDB"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 3')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "IF NOT EXISTS (SELECT * FROM sys.external_file_formats WHERE name = 'SynapseParquetFormat') \n\tCREATE EXTERNAL FILE FORMAT [SynapseParquetFormat] \n\tWITH ( FORMAT_TYPE = PARQUET)\nGO\n\nCREATE EXTERNAL TABLE ext.YellowTaxis (\n\t[vendorID] varchar(8000),\n\t[tpepPickupDate] date,\n\t[tpepDropoffDate] date,\n\t[passengerCount] int,\n\t[tripDistance] float,\n\t[puLocationId] varchar(8000),\n\t[doLocationId] varchar(8000),\n\t[rateCodeId] int,\n\t[storeAndFwdFlag] varchar(8000),\n\t[paymentType] varchar(8000),\n\t[fareAmount] float,\n\t[extra] float,\n\t[mtaTax] float,\n\t[improvementSurcharge] varchar(8000),\n\t[tipAmount] float,\n\t[tollsAmount] float,\n\t[totalAmount] float\n\t)\n\tWITH (\n\tLOCATION = 'raw/bigdata/YellowTaxis.parquet/',\n\tDATA_SOURCE = DataLakeSrc,\n\tFILE_FORMAT = [SynapseParquetFormat],\n\tREJECT_TYPE = VALUE,\n\tREJECT_VALUE = 0\n\t)\nGO\n\nSELECT TOP 100 * FROM ext.YellowTaxis\nGO\n\nCREATE EXTERNAL TABLE ext.ProcessedYellowTaxis\nWITH \n(  \n    DATA_SOURCE = DataLakeSrc,\n    FILE_FORMAT = SynapseParquetFormat,\n    LOCATION='/Facts/YellowTaxis.parquet'    \n) \nAS\nSELECT top 100\n      PickupDate        = tpepPickupDate\n    , DropDate          = tpepDropoffDate\n    , Passengers        = passengerCount\n    , TripDistance      = tripDistance\n    , RateCodeId        = RatecodeID\n    , PickupLocationId  = PULocationID\n    , DropLocationId    = DOLocationID\n    , PaymentTypeId     = paymentType\n    , TotalAmount       = totalAmount    \nFROM ext.YellowTaxis y\n    INNER JOIN ext.TaxiZones z ON y.PULocationID = z.LocationID\nWHERE tpepPickupDate >= '2019-06-01' \n    AND tpepPickupDate < '2019-07-01'\n    AND passengerCount > 0\n\tAND z.ServiceZone = 'Yellow Zone';\n",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"poolName": "jenilsqldw",
+						"databaseName": "jenilsqldw"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 4')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "-- Dedicated pool\nCREATE TABLE prod.YellowTaxis_RoundRobin\nWITH\n(\n    DISTRIBUTION = ROUND_ROBIN\n)\nAS\nSELECT * \nFROM ext.YellowTaxis;\n\n-- Check distribution of data\nDBCC PDW_SHOWSPACEUSED('prod.YellowTaxis_RoundRobin')\n\n-- Create Hash table for Yellow Taxis, based on PULocationID\nCREATE TABLE prod.YellowTaxis_Hash\nWITH\n(\n    DISTRIBUTION = HASH(PULocationID)\n)\nAS\nSELECT  *\nFROM prod.YellowTaxis_RoundRobin\n\nSELECT * FROM prod.YellowTaxis_Hash\n\n-- Check distribution of data\nDBCC PDW_SHOWSPACEUSED('prod.YellowTaxis_Hash')",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"poolName": "jenilsqldw",
+						"databaseName": "jenilsqldw"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/SQL script 5')]",
+			"type": "Microsoft.Synapse/workspaces/sqlscripts",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"content": {
+					"query": "-- Run query on Round Robin distributed table\nSELECT [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\n\t, AVG(\n\t\t\tDATEDIFF(SECOND, tpepPickupDate, tpepDropOffDate)\n\t\t )\nFROM prod.YellowTaxis_RoundRobin\nGROUP BY [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\nGO\n\n-- Run query on Hash distributed table\nSELECT [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\n\t, AVG(\n\t\t\tDATEDIFF(SECOND, tpepPickupDate, tpepDropOffDate)\n\t\t )\nFROM prod.YellowTaxis_Hash\nGROUP BY [PULocationID]\n\t, DATENAME(WEEKDAY, tpepPickupDate)\nGO",
+					"metadata": {
+						"language": "sql"
+					},
+					"currentConnection": {
+						"poolName": "jenilsqldw",
+						"databaseName": "jenilsqldw"
+					},
+					"resultLimit": 5000
+				},
+				"type": "SqlQuery"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('workspaceName'), '/jenilsqldw')]",
+			"type": "Microsoft.Synapse/workspaces/sqlPools",
+			"apiVersion": "2019-06-01-preview",
+			"properties": {
+				"collation": "SQL_Latin1_General_CP1_CI_AS",
+				"maxSizeBytes": 263882790666240,
+				"restorePointInTime": "0001-01-01T00:00:00",
+				"annotations": []
+			},
+			"dependsOn": [],
+			"location": "eastus2"
+		}
+	]
+}
